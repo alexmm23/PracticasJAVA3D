@@ -1,6 +1,7 @@
 import javax.media.j3d.*;
 import javax.swing.*;
 import javax.vecmath.*;
+
 import com.sun.j3d.utils.geometry.*;
 import com.sun.j3d.utils.geometry.Box;
 import com.sun.j3d.utils.image.TextureLoader;
@@ -10,61 +11,54 @@ import com.sun.j3d.utils.universe.ViewingPlatform;
 import java.awt.*;
 import java.awt.event.*;
 
-public class Shapes3DPanel extends JPanel implements KeyListener {
+public class Shapes3DPanel extends JPanel {
     private TransformGroup cubeTransformGroup;
     private TransformGroup cylinderTransformGroup;
-    private double cubeRotX = 0.0;
-    private double cubeRotY = 0.0;
-    private double cubeRotZ = 0.0;
-    private double cylinderRotX = 0.0;
-    private double cylinderRotY = 0.0;
-    private double cylinderRotZ = 0.0;
+    private Timer rotationTimer;
+    private double bouncePosition = 0.0;
+    private double bounceSpeed = 0.05;
+    private double bounceHeight = 0.5;
+    private TransformGroup viewingTransformGroup;
 
     public Shapes3DPanel() {
-        setLayout(new GridLayout(1, 2));  // Dos columnas para los dos canvas
+        setLayout(new GridLayout(1, 2));  // Two columns for the two canvases
         setPreferredSize(new Dimension(800, 600));
 
-        // Canvas para el cubo
+        // Canvas for the cube
         GraphicsConfiguration config = SimpleUniverse.getPreferredConfiguration();
         Canvas3D canvas1 = new Canvas3D(config);
         add(canvas1);
 
-        // Canvas para el cilindro
+        // Canvas for the cylinder
         Canvas3D canvas2 = new Canvas3D(config);
         add(canvas2);
 
-        // Crear un SimpleUniverse para cada figura
+        // Create a SimpleUniverse for each shape
         SimpleUniverse universe1 = new SimpleUniverse(canvas1);
         SimpleUniverse universe2 = new SimpleUniverse(canvas2);
 
-        // Configurar la vista para cada universo
+        // Configure the view for each universe
         configureView(universe1);
         configureView(universe2);
 
-        // Crear los BranchGroups y añadirlos a cada universo
+        // Create the BranchGroups and add them to each universe
         BranchGroup scene1 = createCubeSceneGraph();
         BranchGroup scene2 = createCylinderSceneGraph();
         universe1.addBranchGraph(scene1);
         universe2.addBranchGraph(scene2);
 
-        canvas1.setFocusable(true);
-        canvas1.requestFocus();
-        canvas2.setFocusable(true);
-        canvas2.requestFocus();
-
-        // Añadir los listeners de teclado
-        canvas1.addKeyListener(this);
-        canvas2.addKeyListener(this);
+        // Initialize and start the rotation timer
+        rotationTimer = new Timer(16, e -> rotateShapes());
+        rotationTimer.start();
     }
 
     private void configureView(SimpleUniverse universe) {
-        // Configurar la cámara para cada SimpleUniverse
         ViewingPlatform viewingPlatform = universe.getViewingPlatform();
-        TransformGroup viewingTransformGroup = viewingPlatform.getViewPlatformTransform();
+        viewingTransformGroup = viewingPlatform.getViewPlatformTransform();
         Transform3D viewTransform = new Transform3D();
-        viewTransform.setTranslation(new Vector3d(0.0, 0.5, 12.0));  // Cámara atrás
+        viewTransform.setTranslation(new Vector3d(0.0, 0.5, 12.0));  // Initial camera position
         Transform3D rotX = new Transform3D();
-        rotX.rotX(-Math.PI / 16.0); // Ligeramente hacia abajo
+        rotX.rotX(-Math.PI / 16.0); // Slightly downwards
         viewTransform.mul(rotX);
         viewingTransformGroup.setTransform(viewTransform);
     }
@@ -72,13 +66,13 @@ public class Shapes3DPanel extends JPanel implements KeyListener {
     private BranchGroup createCubeSceneGraph() {
         BranchGroup root = new BranchGroup();
 
-        // Configurar el fondo
+        // Configure the background
         TextureLoader loader = new TextureLoader("src/img/background.jpeg", this);
         Background background = new Background(loader.getImage());
         background.setApplicationBounds(new BoundingSphere(new Point3d(), 100.0));
         root.addChild(background);
 
-        // Configurar la iluminación
+        // Configure the lighting
         BoundingSphere bounds = new BoundingSphere(new Point3d(0.0, 0.0, 0.0), 100.0);
         DirectionalLight light1 = new DirectionalLight(
                 new Color3f(0.8f, 0.8f, 0.8f),
@@ -87,7 +81,7 @@ public class Shapes3DPanel extends JPanel implements KeyListener {
         light1.setInfluencingBounds(bounds);
         root.addChild(light1);
 
-        // Crear el cubo
+        // Create the cube
         cubeTransformGroup = new TransformGroup();
         cubeTransformGroup.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
 
@@ -103,7 +97,7 @@ public class Shapes3DPanel extends JPanel implements KeyListener {
 
         Box cube = new Box(2f, 2f, 2f, Box.GENERATE_NORMALS, cubeAppearance);
 
-        // Posicionar el cubo
+        // Position the cube
         Transform3D cubePosition = new Transform3D();
         cubePosition.setTranslation(new Vector3f(0.0f, 0.0f, 0.0f));
         cubeTransformGroup.setTransform(cubePosition);
@@ -117,13 +111,13 @@ public class Shapes3DPanel extends JPanel implements KeyListener {
     private BranchGroup createCylinderSceneGraph() {
         BranchGroup root = new BranchGroup();
 
-        // Configurar el fondo
+        // Configure the background
         TextureLoader loader = new TextureLoader("src/img/background.jpeg", this);
         Background background = new Background(loader.getImage());
         background.setApplicationBounds(new BoundingSphere(new Point3d(), 100.0));
         root.addChild(background);
 
-        // Configurar la iluminación
+        // Configure the lighting
         BoundingSphere bounds = new BoundingSphere(new Point3d(0.0, 0.0, 0.0), 100.0);
         DirectionalLight light1 = new DirectionalLight(
                 new Color3f(0.8f, 0.8f, 0.8f),
@@ -132,7 +126,7 @@ public class Shapes3DPanel extends JPanel implements KeyListener {
         light1.setInfluencingBounds(bounds);
         root.addChild(light1);
 
-        // Crear el cilindro
+        // Create the cylinder
         cylinderTransformGroup = new TransformGroup();
         cylinderTransformGroup.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
 
@@ -148,7 +142,7 @@ public class Shapes3DPanel extends JPanel implements KeyListener {
 
         Cylinder cylinder = new Cylinder(2f, 4.0f, Cylinder.GENERATE_NORMALS, cylinderAppearance);
 
-        // Posicionar el cilindro
+        // Position the cylinder
         Transform3D cylinderPosition = new Transform3D();
         cylinderPosition.setTranslation(new Vector3f(0.0f, 0.0f, 0.0f));
         cylinderTransformGroup.setTransform(cylinderPosition);
@@ -159,73 +153,49 @@ public class Shapes3DPanel extends JPanel implements KeyListener {
         return root;
     }
 
-    @Override
-    public void keyPressed(KeyEvent e) {
-        double rotationAngle = 0.1;
 
-        // Rotación del cubo
-        if (e.isShiftDown()) {
-            Transform3D currentTransform = new Transform3D();
-            cubeTransformGroup.getTransform(currentTransform);
+    private void rotateShapes() {
+        double rotationAngle = 0.01;
 
-            Transform3D rotationTransform = new Transform3D();
-            Vector3d translation = new Vector3d();
-            currentTransform.get(translation);
+        // Update bounce position
+        bouncePosition += bounceSpeed;
+        double yOffset = Math.sin(bouncePosition) * bounceHeight;
 
-            switch (e.getKeyCode()) {
-                case KeyEvent.VK_X:
-                    rotationTransform.rotX(rotationAngle);
-                    cubeRotX += rotationAngle;
-                    break;
-                case KeyEvent.VK_Y:
-                    rotationTransform.rotY(rotationAngle);
-                    cubeRotY += rotationAngle;
-                    break;
-                case KeyEvent.VK_Z:
-                    rotationTransform.rotZ(rotationAngle);
-                    cubeRotZ += rotationAngle;
-                    break;
-            }
+        // Rotate and translate the cube
+        Transform3D cubeTransform = new Transform3D();
+        cubeTransformGroup.getTransform(cubeTransform);
+        Transform3D cubeRotation = new Transform3D();
+        cubeRotation.rotX(rotationAngle);
+        cubeTransform.mul(cubeRotation);
+        cubeRotation.rotY(rotationAngle);
+        cubeTransform.mul(cubeRotation);
+        cubeRotation.rotZ(rotationAngle);
+        cubeTransform.mul(cubeRotation);
 
-            currentTransform.mul(rotationTransform);
-            currentTransform.setTranslation(translation);
-            cubeTransformGroup.setTransform(currentTransform);
-        }
-        // Rotación del cilindro
-        else {
-            Transform3D currentTransform = new Transform3D();
-            cylinderTransformGroup.getTransform(currentTransform);
+        Vector3f cubeTranslation = new Vector3f();
+        cubeTransform.get(cubeTranslation);
+        cubeTranslation.y = (float) yOffset;
+        cubeTransform.setTranslation(cubeTranslation);
+        cubeTransformGroup.setTransform(cubeTransform);
 
-            Transform3D rotationTransform = new Transform3D();
-            Vector3d translation = new Vector3d();
-            currentTransform.get(translation);
+        // Rotate and translate the cylinder in the opposite direction
+        Transform3D cylinderTransform = new Transform3D();
+        cylinderTransformGroup.getTransform(cylinderTransform);
+        Transform3D cylinderRotation = new Transform3D();
+        cylinderRotation.rotX(-rotationAngle);
+        cylinderTransform.mul(cylinderRotation);
+        cylinderRotation.rotY(-rotationAngle);
+        cylinderTransform.mul(cylinderRotation);
+        cylinderRotation.rotZ(-rotationAngle);
+        cylinderTransform.mul(cylinderRotation);
 
-            switch (e.getKeyCode()) {
-                case KeyEvent.VK_X:
-                    rotationTransform.rotX(rotationAngle);
-                    cylinderRotX += rotationAngle;
-                    break;
-                case KeyEvent.VK_Y:
-                    rotationTransform.rotY(rotationAngle);
-                    cylinderRotY += rotationAngle;
-                    break;
-                case KeyEvent.VK_Z:
-                    rotationTransform.rotZ(rotationAngle);
-                    cylinderRotZ += rotationAngle;
-                    break;
-            }
+        Vector3f cylinderTranslation = new Vector3f();
+        cylinderTransform.get(cylinderTranslation);
+        cylinderTranslation.y = (float) yOffset;
+        cylinderTransform.setTranslation(cylinderTranslation);
+        cylinderTransformGroup.setTransform(cylinderTransform);
 
-            currentTransform.mul(rotationTransform);
-            currentTransform.setTranslation(translation);
-            cylinderTransformGroup.setTransform(currentTransform);
-        }
     }
-
-    @Override
-    public void keyReleased(KeyEvent e) {}
-
-    @Override
-    public void keyTyped(KeyEvent e) {}
 
     public static void main(String[] args) {
         JFrame frame = new JFrame("Java3D Shapes");
