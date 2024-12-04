@@ -1,5 +1,5 @@
 <component name="libraryTable">
-  <library name="bin">
+  <library name="j3dcore">
     <CLASSES>
       <root url="jar://$PROJECT_DIR$/../../../../Program Files/Java/Java3D/1.5.1/lib/ext/j3dcore.jar!/" />
       <root url="jar://$PROJECT_DIR$/../../../../Program Files/Java/Java3D/1.5.1/lib/ext/j3dutils.jar!/" />
@@ -8,7 +8,6 @@
     <JAVADOC />
     <NATIVE>
       <root url="file://$PROJECT_DIR$/../../../../Program Files/Java/Java3D/1.5.1/bin" />
-      <root url="file://$PROJECT_DIR$/../../../../Program Files/Java/Java3D/1.5.1" />
     </NATIVE>
     <SOURCES />
   </library>

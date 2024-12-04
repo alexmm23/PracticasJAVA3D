@@ -13,103 +13,165 @@ public class SolarSystemSimulation extends JFrame {
     private SimpleUniverse universe;
 
     public SolarSystemSimulation() {
-        // Configuración de la ventana
-        setTitle("Simulación de Sistema Solar");
-        setSize(800, 600);
+        setTitle("Sistema Solar");
+        setSize(1600, 1200);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        // Configuración del Canvas 3D
         GraphicsConfiguration config = SimpleUniverse.getPreferredConfiguration();
         canvas = new Canvas3D(config);
         add(canvas);
 
-        // Creación del Universo
         universe = new SimpleUniverse(canvas);
-        universe.getViewingPlatform().setNominalViewingTransform();
 
-        // Crear la escena
+        // Ajustar la vista para alejar la cámara
+        universe.getViewingPlatform().setNominalViewingTransform();
+        TransformGroup viewingTransform = universe.getViewingPlatform().getViewPlatformTransform();
+        Transform3D transform = new Transform3D();
+        transform.setTranslation(new Vector3d(0.0, 0.0, 10.0)); // Alejar la cámara
+        viewingTransform.setTransform(transform);
+
         BranchGroup escena = crearEscena();
         escena.compile();
         universe.addBranchGraph(escena);
     }
 
+
     private BranchGroup crearEscena() {
         BranchGroup raiz = new BranchGroup();
-
-        // Configurar iluminación
-        Color3f luzAmbiente = new Color3f(0.3f, 0.3f, 0.3f);
-        AmbientLight luz = new AmbientLight(luzAmbiente);
-        raiz.addChild(luz);
-
-        // Luz direccional para sombras
-        Color3f luzColor = new Color3f(1.0f, 1.0f, 1.0f);
-        Vector3f direccionLuz = new Vector3f(-1.0f, -1.0f, -1.0f);
-        DirectionalLight luzDireccional = new DirectionalLight(luzColor, direccionLuz);
-        raiz.addChild(luzDireccional);
-
-        // Fondo espacial
-        Background fondo = new Background(new Color3f(Color.BLACK));
-        fondo.setApplicationBounds(new BoundingSphere(new Point3d(0.0, 0.0, 0.0), 100.0));
-        raiz.addChild(fondo);
-
-        // Crear Sol
-        Sphere sol = crearEsfera("texturas/sol.jpg", 2.0f);
+        //Background fondo = new Background(new Color3f(Color.BLACK));
+        //fondo.setApplicationBounds(new BoundingSphere(new Point3d(0.0, 0.0, 0.0), 100.0));
+        //raiz.addChild(fondo);
+        setBackgroundImage(raiz, "src/img/fondo.jpeg");
+        Sphere sol = crearEsferaConTextura(0.4f, "sol.jpg");
         TransformGroup tgSol = new TransformGroup();
-        Transform3D rotacionSol = new Transform3D();
-        rotacionSol.rotZ(Math.PI / 4);
-        tgSol.setTransform(rotacionSol);
+        tgSol.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
         tgSol.addChild(sol);
         raiz.addChild(tgSol);
-
-        // Crear Tierra
-        Sphere tierra = crearEsfera("texturas/tierra.jpg", 1.0f);
-        TransformGroup tgTierra = crearObjetoRotatorio(tierra, new Vector3d(5.0, 0.0, 0.0));
-        raiz.addChild(tgTierra);
-
-        // Texto 3D
-        Text3D texto = new Text3D(new Font3D(new Font("Arial", Font.BOLD, 1), new FontExtrusion()),
-                "Sistema Solar", new Point3f(-2.0f, 3.0f, 0.0f));
-        Shape3D formaTexto = new Shape3D(texto);
-        raiz.addChild(formaTexto);
+        Alpha alphaSol = new Alpha(-1, 4000); // Animación infinita
+        RotationInterpolator rotacionSol = new RotationInterpolator(alphaSol, tgSol);
+        rotacionSol.setSchedulingBounds(new BoundingSphere(new Point3d(0.0, 0.0, 0.0), 100.0));
+        tgSol.addChild(rotacionSol);
+        configurarLuzSolar(raiz, tgSol);
+        Sphere tierra = crearEsferaConTextura(0.2f, "tierra.jpg");
+        TransformGroup tgRotacionTierra = new TransformGroup();
+        tgRotacionTierra.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
+        tgRotacionTierra.addChild(tierra);
+        Alpha alphaTierra = new Alpha(-1, 2000); // Rotación infinita
+        RotationInterpolator rotacionTierra = new RotationInterpolator(alphaTierra, tgRotacionTierra);
+        rotacionTierra.setSchedulingBounds(new BoundingSphere(new Point3d(0.0, 0.0, 0.0), 100.0));
+        tgRotacionTierra.addChild(rotacionTierra);
+        TransformGroup tgOrbitaTierra = crearOrbita(tgRotacionTierra, 4.0, true);
+        raiz.addChild(tgOrbitaTierra);
+        String texto = "Sistema solar";
+        TransformGroup tgTexto = crearTexto3D(texto, new Vector3f(-2.0f, -2.0f, -1.0f));
+        raiz.addChild(tgTexto);
 
         return raiz;
     }
+    private void setBackgroundImage(BranchGroup raiz, String path) {
+        // Cargar la imagen
+        TextureLoader loader = new TextureLoader(path, null);  // null indica el componente de contenedor
+        ImageComponent2D image = loader.getImage();
 
-    private Sphere crearEsfera(String rutaTextura, float radio) {
-        // Crear esfera con textura
-        Appearance apariencia = new Appearance();
-        try {
-            TextureLoader cargadorTextura = new TextureLoader("src/" + rutaTextura, this);
-            Texture textura = cargadorTextura.getTexture();
-            apariencia.setTexture(textura);
-        } catch (Exception e) {
-            System.out.println("Error al cargar la textura: " + rutaTextura);
-            System.out.println(e.getMessage());
+        // Verificar si la imagen se carga correctamente
+        if (image == null) {
+            System.err.println("Error al cargar la imagen de fondo: " + path);
+            return;
         }
 
-        return new Sphere(radio, Sphere.GENERATE_NORMALS | Sphere.GENERATE_TEXTURE_COORDS, 50, apariencia);
+        // Crear el fondo con la imagen
+        Background fondo = new Background();
+        fondo.setImage(image);
+        fondo.setImageScaleMode(Background.SCALE_FIT_ALL); // Asegura que la imagen cubra toda la pantalla
+        fondo.setApplicationBounds(new BoundingSphere(new Point3d(0.0, 0.0, 0.0), 1000.0)); // Ajustar el radio
+
+        // Añadir el fondo a la escena
+        raiz.addChild(fondo);
     }
 
-    private TransformGroup crearObjetoRotatorio(Node objeto, Vector3d posicion) {
-        TransformGroup tg = new TransformGroup();
+    private void configurarLuzSolar(BranchGroup root, TransformGroup tgSol) {
+        PointLight luzSolar = new PointLight();
+        luzSolar.setColor(new Color3f(1.0f, 1.0f, 0.8f));
+        luzSolar.setPosition(new Point3f(0.0f, 0.0f, 0.0f));
+        luzSolar.setAttenuation(1.0f, 0.1f, 0.01f);
+        luzSolar.setInfluencingBounds(new BoundingSphere(new Point3d(0.0, 0.0, 0.0), 100.0));
+        root.addChild(luzSolar);
+    }
+
+    private Sphere crearEsferaConTextura(float radio, String texturaArchivo) {
+        Appearance apariencia = new Appearance();
+        System.out.println("Ruta actual: " + new java.io.File(".").getAbsolutePath());
+        String absolutePath = new java.io.File("").getAbsolutePath();
+        System.out.println(absolutePath);
+        TextureLoader cargador = new TextureLoader(absolutePath + "/src/texturas/" + texturaArchivo, this);
+        Texture textura = cargador.getTexture();
+
+        if (textura == null) {
+            System.err.println("Error cargando la textura: " + texturaArchivo);
+            System.err.println("Ruta actual: " + new java.io.File(".").getAbsolutePath());
+            return new Sphere(radio);
+        }
+        apariencia.setTexture(textura);
+
+        TextureAttributes atributosTextura = new TextureAttributes();
+        atributosTextura.setTextureMode(TextureAttributes.MODULATE);
+        apariencia.setTextureAttributes(atributosTextura);
+
+        Material material = new Material();
+        material.setLightingEnable(true);
+        if (texturaArchivo.contains("sol")) {
+            material.setEmissiveColor(new Color3f(1.0f, 1.0f, 0.8f));
+        }
+        apariencia.setMaterial(material);
+
+        return new Sphere(radio, Sphere.GENERATE_TEXTURE_COORDS | Sphere.GENERATE_NORMALS, 50, apariencia);
+    }
+    private TransformGroup crearTexto3D(String texto, Vector3f posicion) {
+        Font3D fuente = new Font3D(new java.awt.Font("Arial", Font.BOLD, 1), new FontExtrusion());
+        Text3D texto3D = new Text3D(fuente, texto);
+        Appearance apariencia = new Appearance();
+        Material material = new Material();
+        material.setDiffuseColor(new Color3f(1.0f, 1.0f, 1.0f)); // Blanco
+        material.setEmissiveColor(new Color3f(1.0f, 1.0f, 0.8f));
+        apariencia.setMaterial(material);
+        Shape3D shape = new Shape3D(texto3D, apariencia);
         Transform3D transformacion = new Transform3D();
         transformacion.setTranslation(posicion);
-        tg.setTransform(transformacion);
-
-        // Rotación
-        TransformGroup rotacion = new TransformGroup();
-        rotacion.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
-        Alpha alpha = new Alpha(-1, 4000);
-        RotationInterpolator rotador = new RotationInterpolator(alpha, rotacion);
-        BoundingSphere bounds = new BoundingSphere(new Point3d(0.0, 0.0, 0.0), 100.0);
-        rotador.setSchedulingBounds(bounds);
-        rotacion.addChild(rotador);
-
-        rotacion.addChild(objeto);
-        tg.addChild(rotacion);
-
-        return tg;
+        TransformGroup tgTexto = new TransformGroup(transformacion);
+        tgTexto.addChild(shape);
+        return tgTexto;
     }
+
+
+    private TransformGroup crearOrbita(Node objeto, double radioOrbita, boolean sentidoHorario) {
+        TransformGroup tgOrbita = new TransformGroup();
+        tgOrbita.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
+
+        Transform3D transformacion = new Transform3D();
+        Alpha alpha = new Alpha(-1, 10000); // Tiempo completo de la órbita
+
+        RotationInterpolator rotacion = new RotationInterpolator(
+                alpha,
+                tgOrbita,
+                transformacion,
+                0.0f,
+                sentidoHorario ? (float) Math.PI * 2 : -(float) Math.PI * 2
+        );
+
+        Transform3D translacion = new Transform3D();
+        translacion.setTranslation(new Vector3d(radioOrbita, 0, 0));
+        TransformGroup tgObjeto = new TransformGroup(translacion);
+        tgObjeto.addChild(objeto);
+
+        tgOrbita.addChild(rotacion);
+        tgOrbita.addChild(tgObjeto);
+
+        BoundingSphere bounds = new BoundingSphere(new Point3d(0.0, 0.0, 0.0), 100.0);
+        rotacion.setSchedulingBounds(bounds);
+
+        return tgOrbita;
+    }
+
 
     public static void main(String[] args) {
         SolarSystemSimulation simulacion = new SolarSystemSimulation();
