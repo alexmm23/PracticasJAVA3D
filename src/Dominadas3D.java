@@ -52,12 +52,35 @@ public class Dominadas3D extends JFrame {
                 moverPie(e.getX(), e.getY());
             }
         });
+
+        // Añadir KeyListener para eventos de teclado
+        canvas.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                manejarEventoTeclado(e);
+            }
+        });
+
         contadorLabel = new JLabel("Toques: 0");
         contadorLabel.setFont(new Font("Arial", Font.BOLD, 20));
         contadorLabel.setForeground(Color.WHITE);
         add(contadorLabel, BorderLayout.NORTH);
 
         iniciarBucleDelJuego();
+        canvas.setFocusable(true);
+        canvas.requestFocusInWindow();
+    }
+
+    private void manejarEventoTeclado(KeyEvent e) {
+        if (e.getKeyCode() == KeyEvent.VK_P) {
+            if (gameLoop.isRunning()) {
+                gameLoop.stop();
+                System.out.println("Juego pausado");
+            } else {
+                gameLoop.start();
+                System.out.println("Juego reanudado");
+            }
+        }
     }
 
     private BranchGroup crearEscena() {
@@ -161,6 +184,9 @@ public class Dominadas3D extends JFrame {
     private void salirAlMenu() {
         System.out.println("Saliendo al menú principal...");
         dispose();
+        MenuPrincipal menu = new MenuPrincipal();
+        menu.setVisible(true);
+
     }
 
     private void iniciarBucleDelJuego() {
