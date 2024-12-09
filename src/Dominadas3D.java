@@ -3,12 +3,19 @@ import com.sun.j3d.utils.geometry.Sphere;
 import com.sun.j3d.utils.image.TextureLoader;
 import com.sun.j3d.utils.universe.SimpleUniverse;
 
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import javax.media.j3d.*;
 import javax.vecmath.*;
+import javax.sound.sampled.Clip;
 
 public class Dominadas3D extends JFrame {
     private Canvas3D canvas;
@@ -31,13 +38,55 @@ public class Dominadas3D extends JFrame {
     private int mouseXAnterior = 0;
     private int mouseYAnterior = 0;
     private long tiempoAnterior = System.currentTimeMillis();
+    private Clip musicaDeFondo;
+    private Clip sonidoGolpe;
 
+    private void cargarMusicaDeFondo() {
+        try {
+            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(new File("src/sonidos/samba.wav"));
+            musicaDeFondo = AudioSystem.getClip();
+            musicaDeFondo.open(audioInputStream);
+            musicaDeFondo.loop(Clip.LOOP_CONTINUOUSLY);
+        } catch (LineUnavailableException e) {
+            System.err.println("Error de línea de audio: " + e.getMessage());
+        } catch (UnsupportedAudioFileException e) {
+            System.err.println("Formato de audio no soportado: " + e.getMessage());
+        } catch (IOException e) {
+            System.err.println("Error de E/S: " + e.getMessage());
+        }
+    }
+    private void cargarSonidoGolpe() {
+        try {
+            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(new File("src/sonidos/patear_balon.wav"));
+            sonidoGolpe = AudioSystem.getClip();
+            sonidoGolpe.open(audioInputStream);
+        } catch (LineUnavailableException e) {
+            System.err.println("Error de línea de audio: " + e.getMessage());
+        } catch (UnsupportedAudioFileException e) {
+            System.err.println("Formato de audio no soportado: " + e.getMessage());
+        } catch (IOException e) {
+            System.err.println("Error de E/S: " + e.getMessage());
+        }
+    }
+    private void reproducirSonidoGolpe() {
+        if (sonidoGolpe != null) {
+            // Reiniciar y reproducir
+            sonidoGolpe.setFramePosition(0);
+            sonidoGolpe.start();
+        }
+    }
     public Dominadas3D() {
         setTitle("Juego de Dominadas 3D");
         setSize(1000, 800);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
+        cargarMusicaDeFondo();
+        cargarSonidoGolpe();
+
+        if (musicaDeFondo != null) {
+            musicaDeFondo.start();
+        }
         // Crear un cursor transparente
         BufferedImage cursorImg = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
         Cursor blankCursor = Toolkit.getDefaultToolkit().createCustomCursor(cursorImg, new Point(0, 0), "blank cursor");
@@ -87,6 +136,24 @@ public class Dominadas3D extends JFrame {
                 gameLoop.start();
                 System.out.println("Juego reanudado");
             }
+        }
+        if (e.getKeyCode() == KeyEvent.VK_M) {
+            if (musicaDeFondo.isRunning()) {
+                musicaDeFondo.stop();
+            } else {
+                musicaDeFondo.start();
+            }
+        }
+    }
+
+    private void limpiarRecursosAudio() {
+        if (musicaDeFondo != null) {
+            musicaDeFondo.stop();
+            musicaDeFondo.close();
+        }
+        if (sonidoGolpe != null) {
+            sonidoGolpe.stop();
+            sonidoGolpe.close();
         }
     }
 
@@ -187,11 +254,11 @@ public class Dominadas3D extends JFrame {
     }
 
     private void salirAlMenu() {
+        limpiarRecursosAudio();
         System.out.println("Saliendo al menú principal...");
         dispose();
         MenuPrincipal menu = new MenuPrincipal();
         menu.setVisible(true);
-
     }
 
     private void iniciarBucleDelJuego() {
@@ -274,19 +341,17 @@ public class Dominadas3D extends JFrame {
 
         if (distancia < 0.3f) {
             enContacto = true;
-
-            // Calcular ángulo de impacto y velocidades de rebote
             float anguloImpacto = (float) Math.atan2(pieY - balonY, pieX - balonX);
-
-            // Velocidad vertical con componente del movimiento del ratón
             velocidadBalonY = 0.05f + Math.abs(velocidadMouseY) * 0.1f;
-
-            // Velocidad horizontal basada en la posición de impacto
             velocidadBalonX = 0.05f * (float) Math.cos(anguloImpacto);
-
-            // Agregar un pequeño componente aleatorio para hacer los rebotes más dinámicos
             velocidadBalonX += (float) (Math.random() * 0.02 - 0.01);
+            reproducirSonidoGolpe();
         }
+    }
+    @Override
+    public void dispose() {
+        limpiarRecursosAudio();
+        super.dispose();
     }
 
     public static void main(String[] args) {
