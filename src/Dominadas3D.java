@@ -1,3 +1,4 @@
+import com.sun.j3d.utils.geometry.Box;
 import com.sun.j3d.utils.geometry.Sphere;
 import com.sun.j3d.utils.image.TextureLoader;
 import com.sun.j3d.utils.universe.SimpleUniverse;
@@ -5,6 +6,7 @@ import com.sun.j3d.utils.universe.SimpleUniverse;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.image.BufferedImage;
 import javax.media.j3d.*;
 import javax.vecmath.*;
 
@@ -35,6 +37,11 @@ public class Dominadas3D extends JFrame {
         setSize(1000, 800);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
+
+        // Crear un cursor transparente
+        BufferedImage cursorImg = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+        Cursor blankCursor = Toolkit.getDefaultToolkit().createCustomCursor(cursorImg, new Point(0, 0), "blank cursor");
+        setCursor(blankCursor);
 
         GraphicsConfiguration config = SimpleUniverse.getPreferredConfiguration();
         canvas = new Canvas3D(config);
@@ -88,7 +95,7 @@ public class Dominadas3D extends JFrame {
 
         // Fondo
         Background fondo = new Background();
-        TextureLoader loader = new TextureLoader("src/texturas/cesped.jpg", this);
+        TextureLoader loader = new TextureLoader("src/img/cesped2.jpg", this);
         fondo.setImage(loader.getImage());
         fondo.setApplicationBounds(new BoundingSphere(new Point3d(0.0, 0.0, 0.0), 1000.0));
         fondo.setImageScaleMode(Background.SCALE_FIT_MAX);
@@ -112,16 +119,14 @@ public class Dominadas3D extends JFrame {
         Sphere balon = new Sphere(0.15f, Sphere.GENERATE_TEXTURE_COORDS | Sphere.GENERATE_NORMALS, 100, aparienciaBalon);
         tgBalon.addChild(balon);
         root.addChild(tgBalon);
-
-        // Esfera del mouse con imagen personalizada
         tgMouse = new TransformGroup();
         tgMouse.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
         transformMouse = new Transform3D();
         tgMouse.setTransform(transformMouse);
 
         Appearance aparienciaMouse = crearTextura("src/texturas/pie.jpg"); // Imagen personalizada para el mouse
-        Sphere mouseSphere = new Sphere(0.05f, Sphere.GENERATE_TEXTURE_COORDS | Sphere.GENERATE_NORMALS, 100, aparienciaMouse);
-        tgMouse.addChild(mouseSphere);
+        com.sun.j3d.utils.geometry.Box mouseBox = new com.sun.j3d.utils.geometry.Box(0.05f, 0.05f, 0.05f, com.sun.j3d.utils.geometry.Box.GENERATE_TEXTURE_COORDS | Box.GENERATE_NORMALS, aparienciaMouse);
+        tgMouse.addChild(mouseBox);
         root.addChild(tgMouse);
 
         return root;
@@ -193,17 +198,26 @@ public class Dominadas3D extends JFrame {
         gameLoop = new Timer(16, e -> {
             balonY += velocidadBalonY;
             balonX += velocidadBalonX;
+
+            // Rebotar en los bordes en X
             if (balonX > 1.0f || balonX < -1.0f) {
                 velocidadBalonX = -velocidadBalonX;
                 balonX = Math.max(-1.0f, Math.min(1.0f, balonX));
             }
+
+            // Rebotar en los bordes en Y
+            if (balonY > 2.0f || balonY < -2.0f) {
+                velocidadBalonY = -velocidadBalonY;
+                balonY = Math.max(-2.0f, Math.min(2.0f, balonY));
+            }
+
             if (balonY <= -2.0f) {
                 balonY = -2.0f;
                 velocidadBalonY = 0.0f;
                 velocidadBalonX = 0.0f;
                 mostrarDialogoPerdida();
             } else if (enContacto) {
-                velocidadBalonY = 0.02f + (contadorToques * 0.00005f); // Incrementar la velocidad de caída
+                velocidadBalonY = 0.02f + (contadorToques * 0.00005f);
                 velocidadBalonX = (float) (Math.random() * 0.02 - 0.01);
                 contadorToques++;
                 enContacto = false;
@@ -211,21 +225,37 @@ public class Dominadas3D extends JFrame {
                 contadorLabel.setText("Toques: " + contadorToques);
             }
 
-            Transform3D rotacion = new Transform3D();
-            rotacion.rotY(0.01);
-            rotacionBalon.mul(rotacion);
+            // Rotación más natural del balón
+            Transform3D rotacionX = new Transform3D();
+            Transform3D rotacionY = new Transform3D();
+            Transform3D rotacionZ = new Transform3D();
 
-            transformBalon.setIdentity();
-            transformBalon.setTranslation(new Vector3f(balonX, balonY, 0.0f));
-            transformBalon.mul(rotacionBalon); // Aplicar la rotación acumulativa
-            tgBalon.setTransform(transformBalon);
-            velocidadBalonY -= 0.002f;
+            // Rotar en base a la velocidad de movimiento
+            rotacionX.rotX(velocidadBalonY * 5);    // Rotación en X basada en velocidad vertical
+            rotacionY.rotY(velocidadBalonX * 5);    // Rotación en Y basada en velocidad horizontal
+            rotacionZ.rotZ(0.05);                   // Rotación constante en Z para efecto de giro
+
+            rotacionBalon.setIdentity();
+            rotacionBalon.mul(rotacionX);
+            rotacionBalon.mul(rotacionY);
+            rotacionBalon.mul(rotacionZ);
+
+            try {
+                transformBalon.setIdentity();
+                transformBalon.setTranslation(new Vector3f(balonX, balonY, 0.0f));
+                transformBalon.mul(rotacionBalon);
+                tgBalon.setTransform(transformBalon);
+                velocidadBalonY -= 0.002f + (balonY * 0.001f);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                transformBalon.setIdentity();
+                tgBalon.setTransform(transformBalon);
+            }
         });
         gameLoop.start();
     }
 
     private void moverPie(int mouseX, int mouseY) {
-
         long tiempoActual = System.currentTimeMillis();
         long deltaTiempo = tiempoActual - tiempoAnterior;
         float velocidadMouseX = (mouseX - mouseXAnterior) / (float) deltaTiempo;
@@ -242,12 +272,20 @@ public class Dominadas3D extends JFrame {
         tgMouse.setTransform(transformMouse);
         float distancia = (float) Math.sqrt(Math.pow(balonX - pieX, 2) + Math.pow(balonY - pieY, 2));
 
-
         if (distancia < 0.3f) {
             enContacto = true;
-            velocidadBalonY = 0.05f + Math.abs(velocidadMouseY) * 0.1f;
+
+            // Calcular ángulo de impacto y velocidades de rebote
             float anguloImpacto = (float) Math.atan2(pieY - balonY, pieX - balonX);
+
+            // Velocidad vertical con componente del movimiento del ratón
+            velocidadBalonY = 0.05f + Math.abs(velocidadMouseY) * 0.1f;
+
+            // Velocidad horizontal basada en la posición de impacto
             velocidadBalonX = 0.05f * (float) Math.cos(anguloImpacto);
+
+            // Agregar un pequeño componente aleatorio para hacer los rebotes más dinámicos
+            velocidadBalonX += (float) (Math.random() * 0.02 - 0.01);
         }
     }
 
